@@ -1,0 +1,32 @@
+{
+  "name": "ioke",
+  "version": "1.0.0",
+  "description": "Image server with dynamic manipulation",
+  "main": "index.js",
+  "scripts": {
+    "test": "test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Raviteq/ioke.git"
+  },
+  "keywords": [
+    "image",
+    "dynamic",
+    "server"
+  ],
+  "author": "raviteq",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/Raviteq/ioke/issues"
+  },
+  "homepage": "https://github.com/Raviteq/ioke#readme",
+  "dependencies": {
+    "etag": "^1.7.0",
+    "express": "^4.14.0",
+    "gm": "^1.23.0",
+    "install": "^0.8.2",
+    "mime-types": "^2.1.13",
+    "npm": "^4.0.2"
+  }
+}
