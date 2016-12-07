@@ -34,9 +34,26 @@ module.exports = function (rootPath, backend) {
     //
     if (transform) {
       if (isCrop(transform)) {
-        gm(src.stream).crop(transform.w, transform.h, transform.x, transform.y).stream().pipe(res);
+        if(transform.r){
+          var img = gm(src.stream).size({bufferStream: true}, function(err, size){
+            if(err){
+              res.status(500).send(err);
+              return;
+            }
+            var w = size.width;
+            var h = size.height;
+            img.crop(
+              (transform.w * w) / 100,
+              (transform.h * h) / 100,
+              (transform.x * w) / 100,
+              (transform.y * h) / 100).stream().pipe(res);
+          });
+        }else{
+          gm(src.stream).crop(transform.w, transform.h, transform.x, transform.y).stream().pipe(res);
+        }
+
       } else if (isScale(transform)) {
-        gm(src.stream).resize(transform.w, transform.h).stream().pipe(res);
+        gm(src.stream).resize(transform.w, transform.h, transform.r ? '%' : '').stream().pipe(res);
       }
     } else {
       src.stream.pipe(res);
