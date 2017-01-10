@@ -2,7 +2,6 @@
 var gm = require('gm');
 var express = require('express');
 var path = require('path');
-var etag = require('etag');
 var Promise = require('bluebird');
 
 module.exports = function (rootPath, backend) {
@@ -94,6 +93,7 @@ module.exports = function (rootPath, backend) {
 
 var mime = require('mime-types');
 var fs = require('fs');
+var etag = require('etag');
 
 Promise.promisifyAll(fs);
 var backend = {
