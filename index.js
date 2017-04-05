@@ -3,6 +3,8 @@ var gm = require('gm');
 var express = require('express');
 var path = require('path');
 var Promise = require('bluebird');
+var urlJoin = require('url-join');
+var request = require('request');
 
 module.exports = function (rootPath, backend) {
 
@@ -18,18 +20,30 @@ module.exports = function (rootPath, backend) {
     //
     // Fetch backend.
     //
-    var srcPath = path.join(rootPath, req.path);
+    try {
+      var srcPath = validUrl.isUri(rootPath) ? urlJoin(rootPath, req.path) : path.join(rootPath, req.path);
+      var src = backend.fetch(srcPath)
 
-    backend.fetch(srcPath).then(function (src) {
+      src.stream.on('error', function(err){
+        if(err.code == 'ENOENT'){
+          //res.status(404).end();
+          next();
+        }else{
+          console.err(err)
+          res.status(500).end(err);
+        }
+      });
+
       //
       // Set headers
       res.set({
         'Content-Type': src.mimeType,
-        'ETag': src.ETag + transformEtag(transform)
+        // 'ETag': src.ETag + transformEtag(transform)
       });
 
       //
       // Transform if needed.
+      // TODO: Use thread to perform the transform without idling the server.
       //
       if (transform) {
         if (isCrop(transform)) {
@@ -57,9 +71,15 @@ module.exports = function (rootPath, backend) {
       } else {
         src.stream.pipe(res);
       }
-    }, function (err) {
+    }catch(err){
+      console.log(err);
+      res.status(404).end();
+      return;
+    }
+    /*}, function (err) {
       res.status(404).end();
     });
+    */
   });
 
   function transformEtag(transform) {
@@ -91,22 +111,31 @@ module.exports = function (rootPath, backend) {
   return app;
 }
 
+//
+// Simple Backend
+//
 var mime = require('mime-types');
 var fs = require('fs');
-var etag = require('etag');
-
 Promise.promisifyAll(fs);
-var backend = {
-  fetch: function (filePath) {
-    return fs.statAsync(filePath).then(function (stat) {
-      var weakEtag = etag(stat);
+
+var etag = require('etag');
+var validUrl = require('valid-url');
+
+var Backend = function(){
+  this.fetch = function (srcPath) {
+    var mimeType = mime.lookup(srcPath);
+    if(validUrl.isUri(srcPath)){
       return {
-        mimeType: mime.lookup(filePath),
-        stream: fs.createReadStream(filePath),
-        ETag: weakEtag
+        mimeType: mimeType,
+        stream: request.get(srcPath)
       }
-    });
+    }else{
+      return {
+        mimeType: mime.lookup(srcPath),
+        stream: fs.createReadStream(srcPath),
+      }
+    }
   }
 }
 
-module.exports.backend = backend;
+module.exports.Backend = Backend;
