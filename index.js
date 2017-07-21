@@ -29,7 +29,7 @@ module.exports = function (rootPath, backend) {
           //res.status(404).end();
           next();
         }else{
-          console.err(err)
+          console.error(err)
           res.status(500).end(err);
         }
       });
@@ -72,7 +72,7 @@ module.exports = function (rootPath, backend) {
         src.stream.pipe(res);
       }
     }catch(err){
-      console.log(err);
+      console.error(err);
       res.status(404).end();
       return;
     }
