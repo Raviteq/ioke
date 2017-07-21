@@ -1,6 +1,6 @@
 {
   "name": "ioke",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "description": "Image server with dynamic manipulation",
   "main": "index.js",
   "scripts": {
