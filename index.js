@@ -6,11 +6,8 @@ var Promise = require('bluebird');
 var urlJoin = require('url-join');
 var request = require('request');
 
-module.exports = function (rootPath, backend) {
-
-  var app = express.Router();
-
-  app.get('*', function (req, res, next) {
+var middleware = function(rootPath, backend, translator){
+  return function (req, res, next) {
 
     //
     // Get transform object from query string.
@@ -21,66 +18,82 @@ module.exports = function (rootPath, backend) {
     // Fetch backend.
     //
     try {
-      var srcPath = validUrl.isUri(rootPath) ? urlJoin(rootPath, req.path) : path.join(rootPath, req.path);
-      var src = backend.fetch(srcPath)
-
-      src.stream.on('error', function(err){
-        if(err.code == 'ENOENT'){
-          //res.status(404).end();
-          next();
-        }else{
-          console.error(err)
-          res.status(500).end(err);
-        }
-      });
-
-      //
-      // Set headers
-      res.set({
-        'Content-Type': src.mimeType,
-        // 'ETag': src.ETag + transformEtag(transform)
-      });
-
-      //
-      // Transform if needed.
-      // TODO: Use thread to perform the transform without idling the server.
-      //
-      if (transform) {
-        if (isCrop(transform)) {
-          if (transform.r) {
-            var img = gm(src.stream).size({ bufferStream: true }, function (err, size) {
-              if (err) {
-                res.status(500).send(err);
-                return;
-              }
-              var w = size.width;
-              var h = size.height;
-              img.crop(
-                (transform.w * w) / 100,
-                (transform.h * h) / 100,
-                (transform.x * w) / 100,
-                (transform.y * h) / 100).stream().pipe(res);
-            });
-          } else {
-            gm(src.stream).crop(transform.w, transform.h, transform.x, transform.y).stream().pipe(res);
-          }
-
-        } else if (isScale(transform)) {
-          gm(src.stream).resize(transform.w, transform.h, transform.r ? '%' : '').stream().pipe(res);
-        }
-      } else {
-        src.stream.pipe(res);
+      translator = translator || function(rootPath, req){
+        return validUrl.isUri(rootPath) ? urlJoin(rootPath, req.path) : path.join(rootPath, req.path);
       }
+
+      Promise.resolve(translator(rootPath, req)).then(function(srcPath){
+        var src = backend.fetch(srcPath)
+
+        src.stream.on('error', function(err){
+          if(err.code == 'ENOENT'){
+            //res.status(404).end();
+            next();
+          }else{
+            console.error(err)
+            res.status(500).end(err);
+          }
+        });
+
+        //
+        // Set headers
+        res.set({
+          'Content-Type': src.mimeType,
+          // 'ETag': src.ETag + transformEtag(transform)
+        });
+
+        //
+        // Transform if needed.
+        // TODO: Use thread to perform the transform without idling the server.
+        //
+        if (transform) {
+          if (isCrop(transform)) {
+            if (transform.r) {
+              var img = gm(src.stream).size({ bufferStream: true }, function (err, size) {
+                if (err) {
+                  res.status(500).send(err);
+                  return;
+                }
+                var w = size.width;
+                var h = size.height;
+                img.crop(
+                  (transform.w * w) / 100,
+                  (transform.h * h) / 100,
+                  (transform.x * w) / 100,
+                  (transform.y * h) / 100).stream().pipe(res);
+              });
+            } else {
+              gm(src.stream).crop(transform.w, transform.h, transform.x, transform.y).stream().pipe(res);
+            }
+
+          } else if (isScale(transform)) {
+            gm(src.stream).resize(transform.w, transform.h, transform.r ? '%' : '').stream().pipe(res);
+          }
+        } else {
+          src.stream.pipe(res);
+        }
+      }).catch(function(err) {
+        console.error(err);
+        res.status(404).end();
+      });
     }catch(err){
       console.error(err);
       res.status(404).end();
       return;
     }
+
     /*}, function (err) {
       res.status(404).end();
     });
     */
-  });
+  }
+}
+
+module.exports = function (rootPath, backend) {
+
+  var app = express.Router();
+
+  app.get('*', middleware(rootPath, backend));
 
   function transformEtag(transform) {
     if (transform) {
@@ -96,19 +109,19 @@ module.exports = function (rootPath, backend) {
     }
   }
 
-  function isCrop(transform) {
-    return transform &&
-      (transform.x || transform.y) &&
-      (transform.w || transform.h)
-  }
-
-  function isScale(transform) {
-    return (transform &&
-      transform.w ||
-      transform.h);
-  }
-
   return app;
+}
+
+function isCrop(transform) {
+  return transform &&
+    (transform.x || transform.y) &&
+    (transform.w || transform.h)
+}
+
+function isScale(transform) {
+  return (transform &&
+    transform.w ||
+    transform.h);
 }
 
 //
@@ -139,3 +152,4 @@ var Backend = function(){
 }
 
 module.exports.Backend = Backend;
+module.exports.middleware = middleware;
