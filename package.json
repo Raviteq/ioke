@@ -1,6 +1,6 @@
 {
   "name": "ioke",
-  "version": "1.0.5",
+  "version": "1.1.0",
   "description": "Image server with dynamic manipulation",
   "main": "index.js",
   "scripts": {
@@ -26,11 +26,9 @@
     "etag": "^1.7.0",
     "express": "^4.14.0",
     "gm": "^1.23.0",
-    "install": "^0.8.2",
     "mime-types": "^2.1.13",
-    "npm": "^4.0.2",
     "request": "^2.81.0",
-    "url-join": "^1.1.0",
+    "url-join": "^2.0.2",
     "valid-url": "^1.0.9"
   }
 }
