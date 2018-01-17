@@ -6,7 +6,7 @@ var Promise = require('bluebird');
 var urlJoin = require('url-join');
 var request = require('request');
 
-var middleware = function(rootPath, backend, translator){
+var middleware = function(rootPath, backend, translator, headers){
   return function (req, res, next) {
 
     //
@@ -34,19 +34,18 @@ var middleware = function(rootPath, backend, translator){
             res.status(500).end(err);
           }
         });
-
-        //
-        // Set headers
-        res.set({
-          'Content-Type': src.mimeType,
-          // 'ETag': src.ETag + transformEtag(transform)
-        });
-
+        
         //
         // Transform if needed.
         // TODO: Use thread to perform the transform without idling the server.
         //
         if (transform) {
+          if(headers){
+            res.set(Object.assign({
+              'Content-Type': src.mimeType
+            }, headers));
+          }
+
           if (isCrop(transform)) {
             if (transform.r) {
               var img = gm(src.stream).size({ bufferStream: true }, function (err, size) {
@@ -70,7 +69,13 @@ var middleware = function(rootPath, backend, translator){
             gm(src.stream).resize(transform.w, transform.h, transform.r ? '%' : '').stream().pipe(res);
           }
         } else {
-          src.stream.pipe(res);
+          src.stream.on('response', function(res){
+            if(headers){
+              for(header in headers){
+                res.headers[header.toLowerCase()] = headers[header];    
+              }
+            }
+          }).pipe(res);
         }
       }).catch(function(err) {
         console.error(err);
