@@ -34,7 +34,7 @@ var middleware = function(rootPath, backend, translator, headers){
             res.status(500).end(err);
           }
         });
-        
+
         //
         // Transform if needed.
         // TODO: Use thread to perform the transform without idling the server.
@@ -72,8 +72,14 @@ var middleware = function(rootPath, backend, translator, headers){
           src.stream.on('response', function(res){
             if(headers){
               for(header in headers){
-                res.headers[header.toLowerCase()] = headers[header];    
+                var lowerCaseheader = header.toLowerCase();
+                if(typeof headers[header] === 'undefined'){
+                  delete res.headers[lowerCaseheader];
+                }else{
+                  res.headers[lowerCaseheader] = headers[header];
+                }
               }
+              console.log(headers, res.headers);
             }
           }).pipe(res);
         }
