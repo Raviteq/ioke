@@ -34,7 +34,6 @@ var middleware = function(rootPath, backend, translator, headers, cacheOpts) {
           var opts = typeof opts == "string" ? {url: opts} : srcPath;
 
           (cache ? cache.get(opts.url) : Promise.resolve() ).then( function(cached){
-            console.log(cached)
             if(cached){
               return {
                 stream: cached.stream,
@@ -121,7 +120,6 @@ var middleware = function(rootPath, backend, translator, headers, cacheOpts) {
                         res.headers[lowerCaseheader] = headers[header];
                       }
                     }
-                    console.log(headers, res.headers);
                   }
                 })
                 .pipe(res);
@@ -214,9 +212,7 @@ function getHttpStream(opts){
   var protocol = opts.protocol == 'https:' ? https : http;
 
   return new Promise(function(resolve, reject) {
-    var req = protocol.request(opts,  function(res) {
-      console.log(`STATUS: ${res.statusCode}`);
-    
+    var req = protocol.request(opts,  function(res) {    
       resolve({
         stream: res,
         size: parseInt(res.headers["content-length"]),
