@@ -116,7 +116,7 @@ function transformImage(transform, src, dst) {
         size
       ) {
         if (err) {
-          res.status(500).send(err);
+          dst.status(500).send(err);
           return;
         }
         var w = size.width;
@@ -158,7 +158,20 @@ function scale(transform, src, dst) {
         withoutEnlargement: true
       }
     );
-    src.stream.pipe(transformer).pipe(dst);
+
+    function handleError(msg) {
+      return function(err) {
+        console.error(msg, err);
+        dst.status(500).end();
+      };
+    }
+
+    src.stream
+      .on("error", handleError("Error reading from src stream"))
+      .pipe(transformer)
+      .on("error", handleError("Error reading from src stream"))
+      .pipe(dst)
+      .on("error", handleError("Error writing to dst stream"));
   }
 }
 
