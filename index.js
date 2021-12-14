@@ -6,13 +6,13 @@ var Promise = require("bluebird");
 var urlJoin = require("url-join");
 var kashmir = require("kashmir");
 
-var middleware = function(rootPath, backend, translator, headers, cacheOpts) {
+var middleware = function (rootPath, backend, translator, headers, cacheOpts) {
   var cache;
   if (cacheOpts) {
     cache = new kashmir.Cache(cacheOpts);
   }
 
-  return function(req, res, next) {
+  return function (req, res, next) {
     //
     // Get transform object from query string.
     //
@@ -24,37 +24,37 @@ var middleware = function(rootPath, backend, translator, headers, cacheOpts) {
     try {
       translator =
         translator ||
-        function(rootPath, req) {
+        function (rootPath, req) {
           return validUrl.isUri(rootPath)
             ? urlJoin(rootPath, req.path)
             : path.join(rootPath, req.path);
         };
 
       Promise.resolve(translator(rootPath, req))
-        .then(function(srcPath) {
+        .then(function (srcPath) {
           var opts = typeof opts == "string" ? { url: opts } : srcPath;
 
           (cache ? cache.get(opts.url) : Promise.resolve())
-            .then(function(cached) {
+            .then(function (cached) {
               if (cached) {
                 return {
                   stream: cached.stream,
                   size: cached.size,
-                  mimeType: cached.meta.mimeType
+                  mimeType: cached.meta.mimeType,
                 };
               } else {
-                return backend.fetch(srcPath, cache).then(function(src) {
+                return backend.fetch(srcPath, cache).then(function (src) {
                   if (cache) {
                     cache.set(opts.url, src.stream, src.size, {
-                      mimeType: src.mimeType
+                      mimeType: src.mimeType,
                     });
                   }
                   return src;
                 });
               }
             })
-            .then(function(src) {
-              src.stream.on("error", function(err) {
+            .then(function (src) {
+              src.stream.on("error", function (err) {
                 if (err.code == "ENOENT") {
                   next();
                 } else {
@@ -71,7 +71,7 @@ var middleware = function(rootPath, backend, translator, headers, cacheOpts) {
                   res.set(
                     Object.assign(
                       {
-                        "Content-Type": src.mimeType
+                        "Content-Type": src.mimeType,
                       },
                       headers
                     )
@@ -80,7 +80,7 @@ var middleware = function(rootPath, backend, translator, headers, cacheOpts) {
                 transformImage(transform, src, res);
               } else {
                 src.stream
-                  .on("response", function(res) {
+                  .on("response", function (res) {
                     if (headers) {
                       for (header in headers) {
                         var lowerCaseheader = header.toLowerCase();
@@ -96,7 +96,7 @@ var middleware = function(rootPath, backend, translator, headers, cacheOpts) {
               }
             });
         })
-        .catch(function(err) {
+        .catch(function (err) {
           console.error(err);
           res.status(404).end();
         });
@@ -111,26 +111,26 @@ var middleware = function(rootPath, backend, translator, headers, cacheOpts) {
 function transformImage(transform, src, dst) {
   if (isCrop(transform)) {
     if (transform.r) {
-      var img = gm(src.stream).size({ bufferStream: true }, function(
-        err,
-        size
-      ) {
-        if (err) {
-          dst.status(500).send(err);
-          return;
+      var img = gm(src.stream).size(
+        { bufferStream: true },
+        function (err, size) {
+          if (err) {
+            dst.status(500).send(err);
+            return;
+          }
+          var w = size.width;
+          var h = size.height;
+          img
+            .crop(
+              (transform.w * w) / 100,
+              (transform.h * h) / 100,
+              (transform.x * w) / 100,
+              (transform.y * h) / 100
+            )
+            .stream()
+            .pipe(dst);
         }
-        var w = size.width;
-        var h = size.height;
-        img
-          .crop(
-            (transform.w * w) / 100,
-            (transform.h * h) / 100,
-            (transform.x * w) / 100,
-            (transform.y * h) / 100
-          )
-          .stream()
-          .pipe(dst);
-      });
+      );
     } else {
       gm(src.stream)
         .crop(transform.w, transform.h, transform.x, transform.y)
@@ -144,10 +144,7 @@ function transformImage(transform, src, dst) {
 
 function scale(transform, src, dst) {
   if (transform.r) {
-    gm(src.stream)
-      .resize(transform.w, transform.h, "%")
-      .stream()
-      .pipe(dst);
+    gm(src.stream).resize(transform.w, transform.h, "%").stream().pipe(dst);
   } else {
     const transformer = sharp();
     transformer.resize(
@@ -155,12 +152,12 @@ function scale(transform, src, dst) {
       transform.h && parseInt(transform.h),
       {
         fit: transform.w && transform.h ? sharp.fit.fill : sharp.fit.cover,
-        withoutEnlargement: true
+        withoutEnlargement: true,
       }
     );
 
     function handleError(msg) {
-      return function(err) {
+      return function (err) {
         console.error(msg, err);
         dst.status(500).end();
       };
@@ -169,13 +166,13 @@ function scale(transform, src, dst) {
     src.stream
       .on("error", handleError("Error reading from src stream"))
       .pipe(transformer)
-      .on("error", handleError("Error reading from src stream"))
+      .on("error", handleError("Error transforming src stream"))
       .pipe(dst)
       .on("error", handleError("Error writing to dst stream"));
   }
 }
 
-module.exports = function(rootPath, backend) {
+module.exports = function (rootPath, backend) {
   var app = express.Router();
 
   app.get("*", middleware(rootPath, backend));
@@ -183,7 +180,7 @@ module.exports = function(rootPath, backend) {
   function transformEtag(transform) {
     if (transform) {
       var props = ["w", "h", "x", "y"];
-      return props.reduce(function(prev, cur) {
+      return props.reduce(function (prev, cur) {
         if (transform[cur]) {
           return prev + transform[cur];
         }
@@ -217,8 +214,8 @@ Promise.promisifyAll(fs);
 var etag = require("etag");
 var validUrl = require("valid-url");
 
-var Backend = function() {
-  this.fetch = function(opts) {
+var Backend = function () {
+  this.fetch = function (opts) {
     var mimeType = mime.lookup(opts.url);
     if (validUrl.isUri(opts.url)) {
       return getHttpStream(opts);
@@ -228,8 +225,12 @@ var Backend = function() {
   };
 };
 
+/*
 var http = require("http");
 var https = require("https");
+*/
+const { http, https } = require("follow-redirects");
+
 var url = require("url");
 function getHttpStream(opts) {
   var parsedUrl = url.parse(opts.url);
@@ -243,19 +244,19 @@ function getHttpStream(opts) {
         ? parsedUrl.port
         : parsedUrl.protocol === "https:"
         ? 443
-        : 80
+        : 80,
     },
     opts
   );
 
   var protocol = opts.protocol == "https:" ? https : http;
 
-  return new Promise(function(resolve, reject) {
-    var req = protocol.request(opts, function(res) {
+  return new Promise(function (resolve, reject) {
+    var req = protocol.request(opts, function (res) {
       resolve({
         stream: res,
         size: parseInt(res.headers["content-length"]),
-        mimeType: res.headers["content-type"] || mime.lookup(opts.url)
+        mimeType: res.headers["content-type"] || mime.lookup(opts.url),
       });
     });
 
@@ -265,15 +266,15 @@ function getHttpStream(opts) {
 }
 
 function getFileStream(opts) {
-  return new Promise(function(resolve, reject) {
-    fs.stat(opts.url, function(err, stats) {
+  return new Promise(function (resolve, reject) {
+    fs.stat(opts.url, function (err, stats) {
       if (err) {
         reject(err);
       } else {
         resolve({
           mimeType: mime.lookup(opts.url),
           stream: fs.createReadStream(opts.url),
-          size: stats.size
+          size: stats.size,
         });
       }
     });
