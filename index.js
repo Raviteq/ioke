@@ -30,7 +30,7 @@ var middleware = function (rootPath, backend, translator, headers, cacheOpts) {
             : path.join(rootPath, req.path);
         };
 
-      Promise.resolve(translator(rootPath, req))
+      Promise.resolve(translator(rootPath, req, res))
         .then(function (srcPath) {
           var opts = typeof opts == "string" ? { url: opts } : srcPath;
 
